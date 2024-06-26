@@ -1,0 +1,21 @@
+{
+  "name": "people-cars-app",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "babel-node server/index.js"
+  },
+  "dependencies": {
+    "antd": "^5.18.3",
+    "apollo-server-express": "^3.0.0",
+    "express": "^4.17.1",
+    "graphql": "^15.5.0"
+  },
+  "devDependencies": {
+    "@babel/core": "^7.14.6",
+    "@babel/node": "^7.14.7",
+    "@babel/plugin-proposal-private-property-in-object": "^7.21.11",
+    "@babel/preset-env": "^7.14.7"
+  }
+}
