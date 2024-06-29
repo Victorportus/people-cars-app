@@ -1,4 +1,7 @@
-const people = [
+import express from 'express';
+import { ApolloServer, gql } from 'apollo-server-express';
+
+let people = [
   {
     id: '1',
     firstName: 'Bill',
@@ -14,9 +17,9 @@ const people = [
     firstName: 'Linux',
     lastName: 'Torvalds'
   }
-]
+];
 
-const cars = [
+let cars = [
   {
     id: '1',
     year: '2019',
@@ -89,67 +92,106 @@ const cars = [
     price: '55000',
     personId: '3'
   }
-]
-  
-  export const resolvers = {
-    Query: {
-      people: () => people,
-      cars: () => cars,
-      person: (_, { id }) => people.find(person => person.id === id),
-      car: (_, { id }) => cars.find(car => car.id === id),
-      personWithCars: (_, { id }) => {
-        const person = people.find(person => person.id === id);
-        if (person) {
-          person.cars = cars.filter(car => car.personId === person.id);
-        }
-        return person;
+];
+
+const typeDefs = gql`
+  type Person {
+    id: ID!
+    firstName: String!
+    lastName: String!
+    cars: [Car]
+  }
+
+  type Car {
+    id: ID!
+    year: String!
+    make: String!
+    model: String!
+    price: String!
+    personId: ID!
+  }
+
+  type Query {
+    people: [Person]
+    cars: [Car]
+    person(id: ID!): Person
+    car(id: ID!): Car
+    personWithCars(id: ID!): Person
+  }
+
+  type Mutation {
+    addPerson(firstName: String!, lastName: String!): Person
+    updatePerson(id: ID!, firstName: String, lastName: String): Person
+    deletePerson(id: ID!): Person
+    addCar(year: String!, make: String!, model: String!, price: String!, personId: ID!): Car
+    updateCar(id: ID!, year: String, make: String, model: String, price: String, personId: ID): Car
+    deleteCar(id: ID!): Car
+  }
+`;
+
+const resolvers = {
+  Query: {
+    people: () => people,
+    cars: () => cars,
+    person: (_, { id }) => people.find(person => person.id === id),
+    car: (_, { id }) => cars.find(car => car.id === id),
+    personWithCars: (_, { id }) => {
+      const person = people.find(person => person.id === id);
+      if (person) {
+        person.cars = cars.filter(car => car.personId === person.id);
       }
-    },
-    Mutation: {
-      addPerson: (_, { firstName, lastName }) => {
-        const newPerson = { id: `${people.length + 1}`, firstName, lastName, cars: [] };
-        people.push(newPerson);
-        return newPerson;
-      },
-      updatePerson: (_, { id, firstName, lastName }) => {
-        const person = people.find(person => person.id === id);
-        if (firstName) person.firstName = firstName;
-        if (lastName) person.lastName = lastName;
-        return person;
-      },
-      deletePerson: (_, { id }) => {
-        const personIndex = people.findIndex(person => person.id === id);
-        if (personIndex > -1) {
-          const [person] = people.splice(personIndex, 1);
-          cars = cars.filter(car => car.personId !== id);
-          return person;
-        }
-        return null;
-      },
-      addCar: (_, { year, make, model, price, personId }) => {
-        const newCar = { id: `${cars.length + 1}`, year, make, model, price, personId };
-        cars.push(newCar);
-        return newCar;
-      },
-      updateCar: (_, { id, year, make, model, price, personId }) => {
-        const car = cars.find(car => car.id === id);
-        if (year) car.year = year;
-        if (make) car.make = make;
-        if (model) car.model = model;
-        if (price) car.price = price;
-        if (personId) car.personId = personId;
-        return car;
-      },
-      deleteCar: (_, { id }) => {
-        const carIndex = cars.findIndex(car => car.id === id);
-        if (carIndex > -1) {
-          return cars.splice(carIndex, 1)[0];
-        }
-        return null;
-      }
-    },
-    Person: {
-      cars: (person) => cars.filter(car => car.personId === person.id)
+      return person;
     }
-  };
-  
+  },
+  Mutation: {
+    addPerson: (_, { firstName, lastName }) => {
+      const newPerson = { id: `${people.length + 1}`, firstName, lastName, cars: [] };
+      people.push(newPerson);
+      return newPerson;
+    },
+    updatePerson: (_, { id, firstName, lastName }) => {
+      const personIndex = people.findIndex(person => person.id === id);
+      if (personIndex > -1) {
+        const updatedPerson = { ...people[personIndex], firstName, lastName };
+        people[personIndex] = updatedPerson;
+        return updatedPerson;
+      }
+      return null;
+    },
+    deletePerson: (_, { id }) => {
+      const personIndex = people.findIndex(person => person.id === id);
+      if (personIndex > -1) {
+        const [deletedPerson] = people.splice(personIndex, 1);
+        cars = cars.filter(car => car.personId !== id);
+        return deletedPerson;
+      }
+      return null;
+    },
+    addCar: (_, { year, make, model, price, personId }) => {
+      const newCar = { id: `${cars.length + 1}`, year, make, model, price, personId };
+      cars.push(newCar);
+      return newCar;
+    },
+    updateCar: (_, { id, year, make, model, price, personId }) => {
+      const carIndex = cars.findIndex(car => car.id === id);
+      if (carIndex > -1) {
+        const updatedCar = { ...cars[carIndex], year, make, model, price, personId };
+        cars[carIndex] = updatedCar;
+        return updatedCar;
+      }
+      return null;
+    },
+    deleteCar: (_, { id }) => {
+      const carIndex = cars.findIndex(car => car.id === id);
+      if (carIndex > -1) {
+        return cars.splice(carIndex, 1)[0];
+      }
+      return null;
+    }
+  },
+  Person: {
+    cars: (person) => cars.filter(car => car.personId === person.id)
+  }
+};
+
+export { typeDefs, resolvers };
