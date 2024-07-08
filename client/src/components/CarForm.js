@@ -3,7 +3,7 @@ import { useMutation, gql } from '@apollo/client';
 import { Input, Button, Select } from 'antd';
 
 const ADD_CAR = gql`
-  mutation AddCar($year: Int!, $make: String!, $model: String!, $price: Float!, $personId: ID!) {
+  mutation AddCar($year: String!, $make: String!, $model: String!, $price: String!, $personId: ID!) {
     addCar(year: $year, make: $make, model: $model, price: $price, personId: $personId) {
       id
       year
@@ -38,15 +38,15 @@ const CarForm = ({ people }) => {
   const [model, setModel] = useState('');
   const [price, setPrice] = useState('');
   const [personId, setPersonId] = useState('');
-  const [addCar] = useMutation(ADD_CAR, {
+  const [addCar, { error }] = useMutation(ADD_CAR, {
     optimisticResponse: {
       addCar: {
         __typename: "Car",
         id: Math.floor(Math.random() * 10000).toString(), // Temporary ID
-        year: parseInt(year),
+        year: year, // Keep as string
         make,
         model,
-        price: parseFloat(price),
+        price: price, // Keep as string
         personId
       }
     },
@@ -65,16 +65,22 @@ const CarForm = ({ people }) => {
   });
 
   const handleSubmit = () => {
-    addCar({ variables: { year: parseInt(year), make, model, price: parseFloat(price), personId } });
-    setYear('');
-    setMake('');
-    setModel('');
-    setPrice('');
-    setPersonId('');
+    addCar({ variables: { year, make, model, price, personId } })
+      .then(() => {
+        setYear('');
+        setMake('');
+        setModel('');
+        setPrice('');
+        setPersonId('');
+      })
+      .catch(err => {
+        console.error('Error adding car:', err);
+      });
   };
 
   return (
     <div>
+      {error && <p>Error adding car: {error.message}</p>}
       <Input
         value={year}
         onChange={e => setYear(e.target.value)}
