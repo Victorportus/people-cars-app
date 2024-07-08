@@ -1,15 +1,34 @@
 import React, { useState } from 'react';
-import { useMutation, gql } from '@apollo/client';
-import { Card, Button } from 'antd';
+import { useMutation, useQuery, gql } from '@apollo/client';
+import { Card, Button, Select, Input } from 'antd';
+
+const GET_PEOPLE = gql`
+  query GetPeople {
+    people {
+      id
+      firstName
+      lastName
+      cars {
+        id
+        year
+        make
+        model
+        price
+        personId
+      }
+    }
+  }
+`;
 
 const UPDATE_CAR = gql`
-  mutation UpdateCar($id: ID!, $year: Int!, $make: String!, $model: String!, $price: Float!) {
-    updateCar(id: $id, year: $year, make: $make, model: $model, price: $price) {
+  mutation UpdateCar($id: ID!, $year: String!, $make: String!, $model: String!, $price: String!, $personId: ID!) {
+    updateCar(id: $id, year: $year, make: $make, model: $model, price: $price, personId: $personId) {
       id
       year
       make
       model
       price
+      personId
     }
   }
 `;
@@ -28,8 +47,13 @@ const CarCard = ({ car }) => {
   const [make, setMake] = useState(car.make);
   const [model, setModel] = useState(car.model);
   const [price, setPrice] = useState(car.price);
+  const [personId, setPersonId] = useState(car.personId);
+
+  const { loading, error, data } = useQuery(GET_PEOPLE);
 
   const [updateCar] = useMutation(UPDATE_CAR, {
+    refetchQueries: [{ query: GET_PEOPLE }],
+    awaitRefetchQueries: true,
     optimisticResponse: {
       updateCar: {
         __typename: 'Car',
@@ -38,11 +62,35 @@ const CarCard = ({ car }) => {
         make: make,
         model: model,
         price: price,
+        personId: personId,
       },
+    },
+    update(cache, { data: { updateCar } }) {
+      const { people } = cache.readQuery({ query: GET_PEOPLE });
+
+      const oldPerson = people.find(person => person.cars.some(c => c.id === updateCar.id));
+      const newPerson = people.find(person => person.id === updateCar.personId);
+
+      if (oldPerson && oldPerson.id !== updateCar.personId) {
+        // Remove car from old person's cars list
+        oldPerson.cars = oldPerson.cars.filter(c => c.id !== updateCar.id);
+      }
+
+      if (newPerson) {
+        // Add car to new person's cars list
+        newPerson.cars.push(updateCar);
+      }
+
+      cache.writeQuery({
+        query: GET_PEOPLE,
+        data: { people },
+      });
     },
   });
 
   const [deleteCar] = useMutation(DELETE_CAR, {
+    refetchQueries: [{ query: GET_PEOPLE }],
+    awaitRefetchQueries: true,
     update(cache) {
       cache.modify({
         fields: {
@@ -67,7 +115,7 @@ const CarCard = ({ car }) => {
   };
 
   const handleSave = () => {
-    updateCar({ variables: { id: car.id, year, make, model, price } })
+    updateCar({ variables: { id: car.id, year, make, model, price, personId } })
       .then(() => {
         setEditMode(false);
       })
@@ -81,6 +129,7 @@ const CarCard = ({ car }) => {
     setMake(car.make);
     setModel(car.model);
     setPrice(car.price);
+    setPersonId(car.personId);
     setEditMode(false);
   };
 
@@ -94,37 +143,53 @@ const CarCard = ({ car }) => {
       });
   };
 
+  if (loading) return <p>Loading...</p>;
+  if (error) return <p>Error: {error.message}</p>;
+
   return (
     <Card type="inner" title={`${year} ${make} ${model}`}>
       {editMode ? (
         <div>
           <label>Year:</label>
-          <input
-            type="number"
+          <Input
+            type="text"
             value={year}
-            onChange={e => setYear(parseInt(e.target.value))}
+            onChange={e => setYear(e.target.value)}
           />
           <br />
           <label>Make:</label>
-          <input
+          <Input
             type="text"
             value={make}
             onChange={e => setMake(e.target.value)}
           />
           <br />
           <label>Model:</label>
-          <input
+          <Input
             type="text"
             value={model}
             onChange={e => setModel(e.target.value)}
           />
           <br />
           <label>Price:</label>
-          <input
-            type="number"
+          <Input
+            type="text"
             value={price}
-            onChange={e => setPrice(parseFloat(e.target.value))}
+            onChange={e => setPrice(e.target.value)}
           />
+          <br />
+          <label>Person ID:</label>
+          <Select
+            value={personId}
+            onChange={value => setPersonId(value)}
+            style={{ width: 200 }}
+          >
+            {data.people.map(person => (
+              <Select.Option key={person.id} value={person.id}>
+                {person.firstName} {person.lastName}
+              </Select.Option>
+            ))}
+          </Select>
           <br />
           <Button onClick={handleSave}>Save</Button>
           <Button onClick={handleCancel}>Cancel</Button>
